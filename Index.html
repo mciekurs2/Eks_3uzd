@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset=utf-8>
+    <title>My first three.js app</title>
+    <style>
+        body { margin: 0;  overflow: hidden}
+        canvas { width: 100%; height: 100% }
+    </style>
+</head>
+<body>
+<script src="three.min.js"></script>
+<script src="OrbitControls.js"></script>
+<script src="orbits.js"></script>
+
+<script>
+    const module = {
+        frame: 0, cube: null, camera: null, renderer: null, scene: null, controls: null,
+        marsDistance: 227940,
+        //particleSystem: null, particleCount, null,
+
+        init() {
+
+            this.scene = new THREE.Scene();
+            this.camera = new THREE.PerspectiveCamera(50, window.innerWidth / window.innerHeight, 1000, this.marsDistance * 20);
+
+            this.controls = new THREE.OrbitControls( this.camera );
+            this.clock =  new THREE.Clock();
+
+
+
+            var renderer = new THREE.WebGLRenderer({antialias: true});
+            renderer.shadowMap.enabled = true;
+            renderer.setSize( window.innerWidth, window.innerHeight );
+            renderer.setClearColor("#a3a3a3");
+            this.renderer = renderer;
+            document.body.appendChild( renderer.domElement );
+
+            orbits.init(this.scene);
+
+            this.setupEvents();
+            this.createWorld();
+            this.createObjects();
+            this.createParticles();
+            this.createLights();
+            this.animate();
+            //this.update();
+
+        },
+
+
+        setupEvents() {
+            window.addEventListener('resize', () => {
+                this.camera.aspect = window.innerWidth / window.innerHeight;
+                this.camera.updateProjectionMatrix();
+                this.renderer.setSize(window.innerWidth, window.innerHeight);
+            }, false);
+        },
+
+
+        createWorld() {
+            this.camera.position.z = this.marsDistance / 2;
+            this.camera.position.y = this.marsDistance / 2;
+            //this.scene.fog = new THREE.Fog("#b8b8b8", this.camera.near, this.camera.far);
+
+            var geometry = new THREE.SphereGeometry( this.marsDistance  * 9, 32, 32 );
+            var material = new THREE.MeshStandardMaterial( {
+                map: new THREE.TextureLoader().load( '2k_stars_milky_way.jpg' ),
+                side: THREE.DoubleSide
+            } );
+            this.skysphere = new THREE.Mesh( geometry, material );
+            this.scene.add(this.skysphere);
+        },
+
+        createObjects() {
+
+            var geometry = new THREE.SphereGeometry( 20000, 32, 32 );
+            var material = new THREE.MeshStandardMaterial( {
+                map: new THREE.TextureLoader().load("2k_sun.jpg"),
+                //normalMap: new THREE.TextureLoader().load(texture_name),
+                metalness: 0, emissive: "#bec03f"
+            } );
+            this.sun = new THREE.Mesh( geometry, material );
+
+
+            this.sun.material.visible = true;
+            this.scene.add(this.sun);
+
+            var plane = new THREE.Mesh( new THREE.PlaneGeometry( 60, 30 ),
+                new THREE.MeshStandardMaterial( {color: "#cbcbcb", side: THREE.DoubleSide} ));
+            plane.rotation.x = Math.PI /2;
+            plane.position.y = -0.5;
+            plane.receiveShadow = true;
+
+           this.scene.add( plane );
+
+
+        },
+
+        createParticles() {
+            // create the particle variables
+            var particleCount = 1800,
+                particles = new THREE.Geometry(),
+                pMaterial = new THREE.PointsMaterial({
+                    color: "#fffd7e",
+                    size: 100
+                });
+
+            for (var p = 0; p < particleCount; p++) {
+
+                // create a particle with random
+                // position values, -250 -> 250
+                var pX = Math.random() * 30000 - 250,
+                    pY = Math.random() * 30000 - 250,
+                    pZ = Math.random() * 30000 - 250,
+                    particle = new THREE.Vector3(pX, pY, pZ);
+
+                // add it to the geometry
+                particles.vertices.push(particle);
+            }
+
+            var particleSystem = new THREE.Points(
+                particles,
+                pMaterial);
+
+            particleSystem.sortParticles = true;
+
+            this.scene.add(particleSystem);
+
+        },
+
+
+        createLights() {
+
+            var spotLight = new THREE.PointLight( 0xffffff, 1, this.camera.far, 2);
+            //spotLight.position.set( 10, 10, 10 );
+
+            spotLight.castShadow = true;
+
+            spotLight.penumbra = 0.1;
+            //spotLight.power = 2;
+
+            spotLight.shadow.mapSize.width = 3024;
+            spotLight.shadow.mapSize.height = 3024;
+
+            //spotLight.shadow.camera.near = 500;
+            spotLight.shadow.camera.far = 3000;
+            spotLight.shadow.camera.fov = 30;
+
+            spotLight.shadow.camera.near = this.camera.near;
+            spotLight.shadow.camera.far = this.camera.far;
+
+
+             // soft white light
+            this.scene.add( new THREE.AmbientLight( 0x404040) );
+
+
+            this.scene.add( spotLight );
+
+        },
+
+
+        animate() {
+            this.controls.update();
+            requestAnimationFrame(() => this.animate());
+            this.renderer.render(this.scene, this.camera);
+
+        }
+        /*
+               update() {
+
+                // add some rotation to the system
+                this.particleSystem.rotation.y += 0.01;
+
+                var pCount = this.particleCount;
+                while (pCount--) {
+
+                    // get the particle
+                    var particle =
+                        particles.vertices[pCount];
+
+                    // check if we need to reset
+                    if (particle.position.y < -200) {
+                        particle.position.y = 200;
+                        particle.velocity.y = 0;
+                    }
+
+                    // update the velocity with
+                    // a splat of randomniz
+                    particle.velocity.y -= Math.random() * .1;
+
+                    // and the position
+                    particle.position.addSelf(
+                        particle.velocity);
+                }
+
+                // flag to the particle system
+                // that we've changed its vertices.
+                this.particleSystem.
+                    geometry.
+                    __dirtyVertices = true;
+
+                // draw
+                this.renderer.render(scene, camera);
+
+                // set up the next call
+                requestAnimFrame(update);
+            }*/
+
+    };
+
+    module.init();
+
+
+</script>
+</body>
+</html>
